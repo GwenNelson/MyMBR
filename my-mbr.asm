@@ -91,6 +91,9 @@ relocated:
     mov bl, dl
 
 .poll_key:
+    mov al,'.'
+    call print_char
+
     mov ah, 1
     int 0x16
     jnz .key_ready
@@ -435,24 +438,24 @@ dap:
 ;   01B0h  timeout in BIOS ticks (byte; 55 ~= 3 seconds)
 ;
 
-MENU_NAME_LEN equ 12
+MENU_NAME_LEN equ 8
 
-times 0x181 - ($ - $$) db 0
+;times 0x184 - ($ - $$) db 0
 
 menu_name_1:
-    db "Partition 1", 0
+    db "Part1", 0
     times MENU_NAME_LEN-($-menu_name_1) db 0
 
 menu_name_2:
-    db "Partition 2", 0
+    db "Part2", 0
     times MENU_NAME_LEN-($-menu_name_2) db 0
 
 menu_name_3:
-    db "Partition 3", 0
+    db "Part3", 0
     times MENU_NAME_LEN-($-menu_name_3) db 0
 
 menu_name_4:
-    db "Partition 4", 0
+    db "Part4", 0
     times MENU_NAME_LEN-($-menu_name_4) db 0
 
 menu_timeout:
