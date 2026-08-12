@@ -6,7 +6,11 @@ PROJECT_DIR="$SCRIPT_DIR/.."
 
 source "$SCRIPT_DIR/loop-funcs.sh"
 
-IMAGE="$PROJECT_DIR/mbr-test.img"
+IMAGE="${1:-}"
+
+[ -n "$IMAGE" ] ||
+    fail "Usage: $0 IMAGE"
+
 REFERENCE_MBR="$PROJECT_DIR/test/syslinux-mbr.bin"
 
 cleanup()

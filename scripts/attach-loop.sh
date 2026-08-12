@@ -1,11 +1,9 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$SCRIPT_DIR/.."
-STATE="$PROJECT_DIR/.loop-device"
 
-IMAGE="${1:-$PROJECT_DIR/mbr-test.img}"
+IMAGE="${1:-}"
 
 fail()
 {
@@ -13,11 +11,17 @@ fail()
     exit 1
 }
 
+[ -n "$IMAGE" ] ||
+    fail "Usage: $0 IMAGE"
+
 [ -f "$IMAGE" ] ||
     fail "Image '$IMAGE' does not exist"
 
+IMAGE=$(realpath "$IMAGE")
+STATE="${IMAGE}.loop-device"
+
 [ ! -e "$STATE" ] ||
-    fail "$STATE already exists; detach the existing loop device first"
+    fail "Loop state already exists for '$IMAGE'; detach it first"
 
 if [ -t 0 ] && [ -t 1 ]; then
     printf "Attach a new loop device for '%s'? [y/N] " "$IMAGE"
@@ -34,7 +38,21 @@ echo "Attaching new loop device for $IMAGE..." >&2
 LOOP=$(sudo losetup --find --show --partscan "$IMAGE") ||
     fail "Could not attach '$IMAGE'"
 
-echo "$LOOP" > "$STATE"
+#
+# Verify what the kernel says before recording it.
+#
+
+BACKING=$(sudo losetup -n -O BACK-FILE "$LOOP") ||
+    fail "Could not determine backing file for '$LOOP'"
+
+BACKING=$(realpath "$BACKING")
+
+if [ "$BACKING" != "$IMAGE" ]; then
+    sudo losetup -d "$LOOP" || true
+    fail "$LOOP attached to unexpected backing file '$BACKING'"
+fi
+
+printf '%s\n' "$LOOP" > "$STATE"
 
 echo "New loop device: $LOOP" >&2
 echo "$LOOP"
