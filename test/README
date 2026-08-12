@@ -1,0 +1,12 @@
+# syslinux-mbr.bin
+
+This file is the standard SYSLINUX MBR bootstrap used as a known-good
+reference MBR for bootloader tests.
+
+The SYSLINUX MBR source is explicitly placed in the public domain.
+
+This copy was obtained from:
+    /usr/lib/syslinux/bios/mbr.bin
+
+It is used only by the test infrastructure and is not part of the
+my_mbr bootloader itself.
