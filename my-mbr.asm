@@ -61,123 +61,6 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Display BIOS disk geometry
-; ----------------------------------------------------------------------
-;
-; INT 13h AH=08h returns:
-;
-;   CH       cylinder bits 0..7
-;   CL 6..7  cylinder bits 8..9
-;   CL 0..5  sectors per track
-;   DH       maximum head number
-;
-; CH/DH are maximum values, so cylinder/head counts are +1.
-;
-
-    mov ah, 0x08
-    mov dl, [boot_drive]
-    int 0x13
-    jc geometry_error
-
-    ;
-    ; Save the returned values before using BIOS video services.
-    ;
-
-    mov [geometry_ch], ch
-    mov [geometry_cl], cl
-    mov [geometry_dh], dh
-
-    ;
-    ; "C="
-    ;
-
-    mov al, 'C'
-    call print_char
-
-    mov al, '='
-    call print_char
-
-    ;
-    ; Decode cylinder:
-    ;
-    ; cylinder =
-    ;   CH | ((CL & 0xC0) << 2)
-    ;
-    ; AX = cylinder count.
-    ;
-
-    xor ax, ax
-    mov al, [geometry_cl]
-    and ax, 0x00c0
-    shl ax, 1
-    shl ax, 1
-
-    xor bx, bx
-    mov bl, [geometry_ch]
-    or ax, bx
-
-    inc ax
-    call print_uint
-
-
-    ;
-    ; " H="
-    ;
-
-    mov al, ' '
-    call print_char
-
-    mov al, 'H'
-    call print_char
-
-    mov al, '='
-    call print_char
-
-    ;
-    ; Heads = maximum head + 1.
-    ;
-
-    xor ax, ax
-    mov al, [geometry_dh]
-    inc ax
-    call print_uint
-
-
-    ;
-    ; " S="
-    ;
-
-    mov al, ' '
-    call print_char
-
-    mov al, 'S'
-    call print_char
-
-    mov al, '='
-    call print_char
-
-    ;
-    ; Sectors per track = CL bits 0..5.
-    ;
-
-    xor ax, ax
-    mov al, [geometry_cl]
-    and ax, 0x003f
-    call print_uint
-
-    ;
-    ; Newline.
-    ;
-
-    mov al, 13
-    call print_char
-
-    mov al, 10
-    call print_char
-
-
-;
-; ----------------------------------------------------------------------
 ; Choose partition
 ; ----------------------------------------------------------------------
 ;
@@ -254,9 +137,11 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Load PBR using legacy CHS
+; Load PBR using legacy CHS, with EDD/LBA fallback
 ; ----------------------------------------------------------------------
 ;
+
+    push bx
 
     mov dh, [bx + 1]
     mov cl, [bx + 2]
@@ -273,7 +158,46 @@ relocated:
     mov dl, [boot_drive]
 
     int 0x13
+
+    pop bx
+    jnc .pbr_loaded
+
+    ;
+    ; Legacy CHS failed. Check for INT 13h extensions.
+    ;
+
+    mov ah, 0x41
+    mov bx, 0x55aa
+    mov dl, [boot_drive]
+    int 0x13
     jc disk_error
+
+    cmp bx, 0xaa55
+    jne disk_error
+
+    test cx, 1
+    jz disk_error
+
+    ;
+    ; Read the selected partition's first sector by LBA.
+    ;
+
+    mov al, [selected_partition]
+    xor ah, ah
+    mov bx, ax
+    shl bx, 4
+    add bx, PARTITION_TABLE
+
+    mov eax, [bx + 8]
+    mov [dap + 8], eax
+
+    mov si, dap
+    mov ah, 0x42
+    mov dl, [boot_drive]
+    int 0x13
+    jc disk_error
+
+.pbr_loaded:
 
 
 ;
@@ -380,35 +304,14 @@ print_char:
     ret
 
 
-;
-; print_uint
-;
-; Print unsigned 16-bit AX in decimal.
-;
-; Destroys AX, BX, CX, DX.
-;
-
-print_uint:
-    xor cx, cx
-    mov bx, 10
-
-.convert:
-    xor dx, dx
-    div bx
-
-    push dx
-    inc cx
-
-    test ax, ax
-    jnz .convert
-
-.print:
-    pop ax
-    add al, '0'
+ ; print_string: DS:SI -> NUL-terminated string
+print_string:
+    lodsb
+    test al, al
+    jz .done
     call print_char
-
-    loop .print
-
+    jmp print_string
+.done:
     ret
 
 
@@ -418,26 +321,15 @@ print_uint:
 ; ======================================================================
 ;
 
-geometry_error:
-    mov si, geometry_error_message
-    jmp print_error
-
 disk_error:
-    mov si, disk_error_message
-    jmp print_error
+    mov al, 'D'
+    jmp fatal_error
 
 invalid_pbr:
-    mov si, invalid_pbr_message
+    mov al, 'P'
 
-
-print_error:
-    lodsb
-
-    test al, al
-    jz hang
-
+fatal_error:
     call print_char
-    jmp print_error
 
 
 hang:
@@ -458,24 +350,15 @@ boot_drive:
 selected_partition:
     db 0
 
-geometry_ch:
+
+dap:
+    db 0x10
     db 0
-
-geometry_cl:
-    db 0
-
-geometry_dh:
-    db 0
-
-
-geometry_error_message:
-    db "Geometry error", 13, 10, 0
-
-disk_error_message:
-    db "Disk error", 13, 10, 0
-
-invalid_pbr_message:
-    db "Invalid PBR", 13, 10, 0
+    dw 1
+    dw LOAD_BASE
+    dw 0
+    dd 0
+    dd 0
 
 
 ;
