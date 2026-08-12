@@ -87,7 +87,6 @@ relocated:
 %else
     ; Count BIOS tick changes using only the low tick byte.
 
-.wait_key:
     xor ah, ah
     int 0x1a
     mov bl, dl          ; starting tick
@@ -205,6 +204,7 @@ relocated:
     mov bx, ax
     shl bx, 4
     add bx, PARTITION_TABLE
+    mov si, bx
 
 
 ;
@@ -243,12 +243,12 @@ relocated:
     mov eax, [bx + 8]
     mov [dap + 8], eax
 
-    push bx
+    push si 
     mov si, dap
     mov ah, 0x42
     mov dl, [boot_drive]
     int 0x13
-    pop bx
+    pop si
     jnc .pbr_loaded
 
     ;
@@ -262,9 +262,9 @@ relocated:
     pop bx
 
 .try_chs:
-    mov dh, [bx + 1]
-    mov cl, [bx + 2]
-    mov ch, [bx + 3]
+    mov dh, [si + 1]
+    mov cl, [si + 2]
+    mov ch, [si + 3]
 
     xor ax, ax
     mov es, ax
@@ -453,11 +453,11 @@ dap:
 
 MENU_NAME_LEN equ 8
 
-%if ($-$$) > 0x195
+%if ($-$$) > 0x197
     %error "Code overlaps config area"
 %endif
 
-times 0x195 - ($ - $$) db 0
+times 0x197 - ($ - $$) db 0
 
 menu_name_1:
     db "Part1", 0
