@@ -1,6 +1,14 @@
 BITS 16
 ORG 0x7C00
 
+; Standard PBR entry point.
+; Bytes 0x03-0x59 are reserved for filesystem metadata/BPB and
+; will be preserved by the installer.
+	jmp short start
+	nop
+
+	times 0x5A-($-$$) db 0
+
 start:
 	xor ax,ax
 	mov ds,ax
@@ -25,5 +33,5 @@ hang:
 message:
 	db "Booted PBR", PBRID, "!", 13, 10, 0
 
-times 510-($-$$) db 0
-dw 0xAA55
+	times 510-($-$$) db 0
+	dw 0xAA55

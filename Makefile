@@ -1,8 +1,8 @@
 all:	mbr pbr-tests
 
 mbr-test.img: my-mbr.bin test-pbr1.bin test-pbr2.bin test-pbr3.bin test-pbr4.bin
-	./gen-img.sh
-	./verify-img.sh
+	./scripts/gen-img.sh
+	./scripts/verify-img.sh
 
 pbr-tests: test-pbr1.bin test-pbr2.bin test-pbr3.bin test-pbr4.bin
 
@@ -14,9 +14,8 @@ my-mbr.bin: my-mbr.asm
 
 mbr: my-mbr.bin
 
-test: mbr-test.img
-	./verify-img.sh
-	qemu-system-i386 -hda mbr-test.img -boot c
+test-deps: mbr-test.img
+	./scripts/verify-img.sh
 
 clean:
 	rm -f *.bin
