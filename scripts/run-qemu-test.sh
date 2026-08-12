@@ -2,7 +2,7 @@
 
 IMAGE="${1:-}"
 EXPECTED="${2:-}"
-TIMEOUT="${QEMU_TIMEOUT:-3}"
+TIMEOUT="3"
 
 fail()
 {
@@ -20,19 +20,29 @@ esac
 
 EXPECTED_OUTPUT="PBR_TEST_OK:$EXPECTED"
 
-OUTPUT=$(
-    timeout --signal=TERM "$TIMEOUT" \
-        qemu-system-i386 \
-        -drive "file=$IMAGE,format=raw" \
-        -display none \
-        -serial stdio \
-        -monitor none \
-        -no-reboot \
-        -no-shutdown \
-        2>/dev/null
-)
+
+OUTPUT_FILE=$(mktemp)
+
+cleanup()
+{
+    rm -f "$OUTPUT_FILE"
+}
+
+trap cleanup EXIT
+
+timeout --signal=TERM "$TIMEOUT" \
+    qemu-system-i386 \
+    -drive "file=$IMAGE,format=raw" \
+    -display none \
+    -monitor none \
+    -no-reboot \
+    -no-shutdown \
+    -debugcon "file:$OUTPUT_FILE" \
+    2>/dev/null
 
 STATUS=$?
+
+OUTPUT=$(cat "$OUTPUT_FILE")
 
 # QEMU is expected to be killed by timeout because our PBR deliberately
 # hangs after reporting success.

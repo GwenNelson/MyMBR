@@ -19,20 +19,51 @@ ORG 0x7C00
 	times 0x5A-($-$$) db 0
 
 start:
-	xor ax,ax
-	mov ds,ax
+	; setup stack and data segment
+	cli
 
-	mov si,message
+	xor ax, ax
+	mov ds, ax
+	mov es, ax
+	mov ss, ax
+	mov sp, 0x7C00
 
-print:
+	sti
+
+	mov si,message      ; we want to do the debug print first, for testing sake
+	call debug_print
+
+	mov si,message      ; but still show to the user too
+	call scr_print
+
+	jmp hang
+
+
+scr_print:
 	lodsb
 	test al,al
-	jz hang
+	jz .done
 
 	mov ah,0x0E
 	mov bx,0x0007
 	int 0x10
-	jmp print
+	jmp scr_print
+.done:
+	ret
+
+
+debug_print:
+	mov dx, 0xE9
+
+.loop:
+	lodsb
+	test al, al
+	jz .done
+	out dx, al
+	jmp .loop
+
+.done:
+	ret
 
 hang:
 	cli
