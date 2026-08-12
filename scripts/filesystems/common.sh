@@ -13,12 +13,25 @@ FILESYSTEM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 filesystem_unload()
 {
+    #
+    # Give the current handler a chance to remove any private
+    # functions or variables it exported.
+    #
+
+    if declare -F filesystem_onunload >/dev/null; then
+        filesystem_onunload
+    fi
+
+    #
+    # Remove the standard filesystem-handler interface.
+    #
+
     unset PARTED_TYPE
 
     unset -f filesystem_create 2>/dev/null || true
     unset -f filesystem_verify 2>/dev/null || true
     unset -f pbr_install 2>/dev/null || true
-    unset -f pbr_install_fat 2>/dev/null || true
+    unset -f filesystem_onunload 2>/dev/null || true
 }
 
 
@@ -37,6 +50,7 @@ filesystem_unload()
 #   filesystem_verify()
 #   pbr_install()
 #
+
 
 filesystem_load()
 {
@@ -61,9 +75,8 @@ filesystem_load()
         echo "FAILED: could not load filesystem handler '$handler'" >&2
         return 1
     }
-
-    return 0
 }
+
 
 
 #

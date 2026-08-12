@@ -99,3 +99,8 @@ pbr_install()
 
     pbr_install_fat "$dev" "$pbr"
 }
+
+filesystem_onunload()
+{
+    unset -f pbr_install_fat 2>/dev/null || true
+}
