@@ -70,6 +70,26 @@ check_type()
     echo "$DEV: $ACTUAL [OK]"
 }
 
+check_signature()
+{
+    DEV="$1"
+
+    SIG=$(sudo dd if="$DEV" bs=1 skip=510 count=2 status=none |
+          od -An -tx1 |
+          tr -d ' \n')
+
+    [ "$SIG" = "55aa" ] ||
+        fail "$DEV: invalid boot-sector signature ($SIG)"
+
+    echo "$DEV: boot signature 55 AA [OK]"
+}
+
+echo
+echo "=== Boot sector signatures ==="
+check_signature "${LOOP}"     # MBR itself
+check_signature "${LOOP}p1"   # FAT32
+check_signature "${LOOP}p3"   # NTFS
+
 echo
 echo "=== Filesystem identification ==="
 
