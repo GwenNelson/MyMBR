@@ -42,19 +42,17 @@ SIZE=$(stat -c %s "$PBR")
 [ "$SIZE" -eq 512 ] ||
     fail "PBR must be exactly 512 bytes (got $SIZE)"
 
-#
-# Validate our input PBR.
-#
-
-SIG=$(dd if="$PBR" bs=1 skip=510 count=2 status=none |
-      od -An -tx1 |
-      tr -d ' \n')
+SIG=$(
+    dd if="$PBR" bs=1 skip=510 count=2 status=none |
+    od -An -tx1 |
+    tr -d ' \n'
+)
 
 [ "$SIG" = "55aa" ] ||
     fail "PBR does not have a 55 AA signature"
 
 #
-# Acquire image loop device.
+# Acquire the image's loop device.
 #
 
 loop_acquire "$IMAGE" ||
@@ -65,35 +63,45 @@ DEV="${LOOP}p${PART}"
 [ -b "$DEV" ] ||
     fail "Partition device '$DEV' does not exist"
 
-echo "Installing $PBR into partition $PART"
-
 #
-# Install JMP + NOP.
-# 000-002: ours
+# Identify filesystem.
 #
 
-sudo dd \
-    if="$PBR" \
-    of="$DEV" \
-    bs=1 \
-    count=3 \
-    conv=notrunc \
-    status=none
+TYPE=$(sudo blkid -s TYPE -o value "$DEV") ||
+    fail "Could not identify filesystem on $DEV"
 
-#
-# 003-059: filesystem-owned, preserve.
-# 05A-1FF: ours
-#
+case "$TYPE" in
+    vfat)
+        #
+        # FAT32 has BPB_FATSz16 == 0. We'll add proper FAT12/16
+        # dispatch later.
+        #
+        FATSZ16=$(sudo dd if="$DEV" bs=1 skip=$((0x16)) count=2 status=none |
+                  od -An -tu2 |
+                  tr -d ' ')
 
-sudo dd \
-    if="$PBR" \
-    of="$DEV" \
-    bs=1 \
-    skip=$((0x5A)) \
-    seek=$((0x5A)) \
-    count=$((512 - 0x5A)) \
-    conv=notrunc \
-    status=none
+        if [ "$FATSZ16" -eq 0 ]; then
+            HANDLER="$SCRIPT_DIR/pbr/fat32.sh"
+        else
+            fail "FAT12/FAT16 PBR installation is not supported yet"
+        fi
+        ;;
+
+    *)
+        HANDLER="$SCRIPT_DIR/pbr/$TYPE.sh"
+        ;;
+esac
+
+[ -f "$HANDLER" ] ||
+    fail "Unsupported filesystem type '$TYPE'"
+
+source "$SCRIPT_DIR/pbr/common.sh"
+source "$HANDLER"
+
+echo "Installing $PBR into partition $PART ($TYPE)"
+
+pbr_install "$DEV" "$PBR" ||
+    fail "PBR installation failed"
 
 sync
 
