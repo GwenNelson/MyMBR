@@ -1,9 +1,18 @@
 BIN_DIR   := bin
 IMAGE_DIR := images
 
-IMAGE_NAME ?= mbr-test.img
-IMAGE      ?= $(IMAGE_DIR)/$(IMAGE_NAME)
-LAYOUT     ?= test/layouts/default.layout
+IMAGE_DIR := images
+
+LAYOUT ?= test/layouts/default.layout
+
+ifndef IMAGE
+    ifndef IMAGE_NAME
+        IMAGE_NAME := $(notdir $(LAYOUT)).img
+    endif
+
+    IMAGE := $(IMAGE_DIR)/$(IMAGE_NAME)
+endif
+
 
 MBR_BIN := $(BIN_DIR)/my-mbr.bin
 
