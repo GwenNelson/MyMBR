@@ -183,8 +183,7 @@ relocated:
 ;
 
 .wait_key:
-    xor ah, ah
-    int 0x16
+    call read_choice
 
     cmp al, '1'
     jb .wait_key
@@ -289,6 +288,71 @@ relocated:
     mov dl, [boot_drive]
 
     jmp 0x0000:LOAD_BASE
+
+
+;
+; ======================================================================
+; Input
+; ======================================================================
+;
+
+;
+; read_choice
+;
+; Returns:
+;   AL = input character
+;
+; Normal build:
+;   Read from BIOS keyboard using INT 16h.
+;
+; TEST_SERIAL_INPUT build:
+;   Read directly from COM1.
+;
+; The test build assumes QEMU has provided an emulated 16550 UART
+; at the standard COM1 base address, 03F8h.
+;
+
+read_choice:
+
+%ifdef TEST_SERIAL_INPUT
+
+.wait_serial:
+    ;
+    ; COM1 Line Status Register = base + 5 = 03FDh.
+    ;
+    ; Bit 0 (Data Ready) indicates that the receive buffer contains
+    ; a character.
+    ;
+
+    mov dx, 0x03fd
+    in al, dx
+
+    test al, 0x01
+    jz .wait_serial
+
+    ;
+    ; COM1 Receive Buffer Register.
+    ;
+
+    mov dx, 0x03f8
+    in al, dx
+
+    ret
+
+%else
+
+    ;
+    ; Production / interactive build.
+    ;
+    ; AH=00h waits for a BIOS keyboard character.
+    ;
+
+    xor ah, ah
+    int 0x16
+
+    ret
+
+%endif
 
 
 ;
