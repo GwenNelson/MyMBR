@@ -1,7 +1,5 @@
 #!/bin/bash
 
-IMAGE="${1:-}"
-EXPECTED="${2:-}"
 TIMEOUT="3"
 
 fail()
@@ -10,15 +8,26 @@ fail()
     exit 1
 }
 
-[ -n "$IMAGE" ] || fail "Usage: $0 IMAGE PARTITION"
+if [ "$#" -lt 2 ]; then
+    echo "Usage: $0 IMAGE PARTITION [QEMU_ARGS...]" >&2
+    exit 2
+fi
+
+IMAGE=$1
+PARTITION=$2
+shift 2
+
+QEMU_EXTRA_ARGS=("$@")
+
+
 [ -f "$IMAGE" ] || fail "Image '$IMAGE' does not exist"
 
-case "$EXPECTED" in
+case "$PARTITION" in
     1|2|3|4) ;;
     *) fail "Partition must be 1, 2, 3 or 4" ;;
 esac
 
-EXPECTED_OUTPUT="PBR_TEST_OK:$EXPECTED"
+EXPECTED_OUTPUT="PBR_TEST_OK:$PARTITION"
 
 
 OUTPUT_FILE=$(mktemp)
@@ -38,6 +47,7 @@ timeout --signal=TERM "$TIMEOUT" \
     -no-reboot \
     -no-shutdown \
     -debugcon "file:$OUTPUT_FILE" \
+    "${QEMU_EXTRA_ARGS[@]}" \
     2>/dev/null
 
 STATUS=$?
@@ -63,5 +73,5 @@ if [ "$OUTPUT" != "$EXPECTED_OUTPUT" ]; then
     fail "Unexpected QEMU serial output"
 fi
 
-echo "PBR $EXPECTED executed successfully [OK]"
+echo "PBR $PARTITION executed successfully [OK]"
 exit 0
