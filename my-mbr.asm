@@ -89,21 +89,19 @@ relocated:
     xor ah, ah
     int 0x1a
     mov bl, dl
-    mov cl, [menu_timeout]
 
 .poll_key:
-    ; AH=01h tests the keyboard without consuming the character.
-    mov ah, 0x01
+    mov ah, 1
     int 0x16
     jnz .key_ready
 
     xor ah, ah
     int 0x1a
-    cmp dl, bl
-    je .poll_key
 
-    mov bl, dl
-    loop .poll_key
+    sub dl, bl
+    cmp dl, [menu_timeout]
+    jb .poll_key
+
 
     ; Timeout: use whichever partition is already marked active.
     mov bx, PARTITION_TABLE
