@@ -1,0 +1,10 @@
+# test/layouts/reversed.layout
+
+IMAGE_SIZE=228M
+
+PARTITIONS=(
+    "fat16 1MiB   33MiB"
+    "ntfs  33MiB  65MiB"
+    "ext2  65MiB  97MiB"
+    "fat32 97MiB  225MiB"
+)
