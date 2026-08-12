@@ -1,0 +1,10 @@
+# test/layouts/default.layout
+
+IMAGE_SIZE=228M
+
+PARTITIONS=(
+    "fat32 1MiB   129MiB"
+    "ext2  129MiB 161MiB"
+    "ntfs  161MiB 193MiB"
+    "fat16 193MiB 225MiB"
+)

@@ -15,7 +15,6 @@ PARTED_TYPE="fat32"
 filesystem_create()
 {
     local dev="$1"
-    local type="$2"
 
     echo "Creating FAT32 filesystem on $dev"
 

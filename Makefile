@@ -3,6 +3,7 @@ IMAGE_DIR := images
 
 IMAGE_NAME ?= mbr-test.img
 IMAGE      ?= $(IMAGE_DIR)/$(IMAGE_NAME)
+LAYOUT     ?= test/layouts/default.layout
 
 MBR_BIN := $(BIN_DIR)/my-mbr.bin
 
@@ -58,8 +59,8 @@ pbr-tests: $(PBR_TEST_BINS)
 # Test image
 #
 
-$(IMAGE): $(PBR_TEST_BINS) | $(IMAGE_DIR)
-	./scripts/gen-img.sh "$@"
+$(IMAGE): $(PBR_TEST_BINS) $(LAYOUT) | $(IMAGE_DIR) 
+	./scripts/gen-img.sh "$@" "$(LAYOUT)"
 	./scripts/verify-img.sh "$@"
 
 test-deps: $(IMAGE)

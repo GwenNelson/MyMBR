@@ -5,11 +5,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
 
 source "$SCRIPT_DIR/loop-funcs.sh"
+source "$SCRIPT_DIR/filesystems/common.sh"
 
 IMAGE="${1:-}"
+LAYOUT="${2:-}"
 
-[ -n "$IMAGE" ] ||
-    fail "Usage: $0 IMAGE"
+[ -n "$IMAGE" ] && [ -n "$LAYOUT" ] ||
+    fail "Usage: $0 IMAGE LAYOUT"
+
+[ -f "$LAYOUT" ] ||
+    fail "Layout '$LAYOUT' does not exist"
+
+source "$LAYOUT"
+
+[ -n "${IMAGE_SIZE:-}" ] ||
+    fail "Layout does not define IMAGE_SIZE"
+
+declare -p PARTITIONS &>/dev/null ||
+    fail "Layout does not define PARTITIONS"
+
+[ "${#PARTITIONS[@]}" -eq 4 ] ||
+    fail "Layout must define exactly four partitions"
+
 
 REFERENCE_MBR="$PROJECT_DIR/test/syslinux-mbr.bin"
 
@@ -32,50 +49,76 @@ MBR_SIZE=$(stat -c %s "$REFERENCE_MBR")
     exit 1
 }
 
-#
-# Create a sparse 260 MiB disk image.
-#
-# Layout:
-#
-#   1-65 MiB      FAT32
-#  65-129 MiB     ext2
-# 129-193 MiB     NTFS
-# 193-257 MiB     FAT16
-#
 
-truncate -s 260M "$IMAGE"
+# create image
+truncate -s "$IMAGE_SIZE" "$IMAGE"
 
 # Create MBR partition table
 parted -s "$IMAGE" mklabel msdos
 
-# Four 64 MiB primary partitions
-parted -s "$IMAGE" mkpart primary fat32 1MiB 65MiB
-parted -s "$IMAGE" mkpart primary ext2  65MiB 129MiB
-parted -s "$IMAGE" mkpart primary ntfs  129MiB 193MiB
-parted -s "$IMAGE" mkpart primary fat16 193MiB 257MiB
+# create partitions according to the provided layout
+
+for entry in "${PARTITIONS[@]}"; do
+    read -r type start end extra <<< "$entry"
+
+    [ -n "$type" ] &&
+    [ -n "$start" ] &&
+    [ -n "$end" ] &&
+    [ -z "$extra" ] ||
+        fail "Invalid partition entry: '$entry'"
+
+    filesystem_load "$type" ||
+        fail "Unsupported filesystem '$type'"
+
+    [ -n "${PARTED_TYPE:-}" ] ||
+        fail "Filesystem '$type' does not define PARTED_TYPE"
+
+    parted -s "$IMAGE" \
+        mkpart primary "$PARTED_TYPE" "$start" "$end" ||
+        fail "Could not create $type partition"
+done
 
 #
-# Install known-good SYSLINUX reference MBR bootstrap.
+# Install reference MBR bootstrap.
 #
 
 "$SCRIPT_DIR/install-mbr.sh" \
     "$IMAGE" \
-    "$PROJECT_DIR/test/syslinux-mbr.bin"
+    "$REFERENCE_MBR"
 
-echo "Installed reference SYSLINUX MBR"
+echo "Installed reference  MBR"
 
 #
 # Attach and create filesystems.
 #
 
-loop_acquire "$IMAGE"
+loop_acquire "$IMAGE" ||
+    fail "Could not acquire loop device"
 
 echo "Image attached as $LOOP"
 
-sudo mkfs.vfat -F 32 "${LOOP}p1"
-sudo mkfs.ext2 -F "${LOOP}p2"
-sudo mkfs.ntfs -F "${LOOP}p3"
-sudo mkfs.vfat -F 16 "${LOOP}p4"
+part=1
+
+for entry in "${PARTITIONS[@]}"; do
+    read -r type start end <<< "$entry"
+
+    DEV="${LOOP}p${part}"
+
+    [ -b "$DEV" ] ||
+        fail "Partition device '$DEV' does not exist"
+
+    filesystem_load "$type" ||
+        fail "Unsupported filesystem '$type'"
+
+    declare -F filesystem_create >/dev/null ||
+        fail "Filesystem '$type' does not provide filesystem_create()"
+
+    filesystem_create "$DEV" ||
+        fail "Could not create $type filesystem on partition $part"
+
+    ((part++))
+done
+
 
 #
 # Show resulting layout.
