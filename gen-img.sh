@@ -41,3 +41,12 @@ sudo fdisk -l "$LOOP"
 sudo blkid "${LOOP}p1" "${LOOP}p2" "${LOOP}p3" "${LOOP}p4"
 
 # cleanup trap detaches LOOP
+sudo mkfs.ext2 -F "${LOOP}p2"
+sudo mkfs.ntfs -F "${LOOP}p3"
+sudo mkfs.ext2 -F "${LOOP}p4"
+
+# Show what we've made
+sudo fdisk -l "$LOOP"
+sudo blkid "${LOOP}p1" "${LOOP}p2" "${LOOP}p3" "${LOOP}p4"
+
+# cleanup trap detaches LOOP
