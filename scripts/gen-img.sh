@@ -10,6 +10,12 @@ source "$SCRIPT_DIR/filesystems/common.sh"
 IMAGE="${1:-}"
 LAYOUT="${2:-}"
 
+fail()
+{
+    echo "FAILED: $*" >&2
+    exit 1
+}
+
 [ -n "$IMAGE" ] && [ -n "$LAYOUT" ] ||
     fail "Usage: $0 IMAGE LAYOUT"
 

@@ -1,0 +1,10 @@
+# test/layouts/chs-small.layout
+
+IMAGE_SIZE=32M
+
+PARTITIONS=(
+    "fat16 1MiB  8MiB"
+    "ext2  8MiB  16MiB"
+    "ntfs  16MiB 24MiB"
+    "fat16 24MiB 31MiB"
+)
