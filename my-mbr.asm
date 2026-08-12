@@ -86,14 +86,14 @@ relocated:
     call read_choice
 %else
     ; Count BIOS tick changes using only the low tick byte.
+
+.wait_key:
     xor ah, ah
     int 0x1a
-    mov bl, dl
+    mov bl, dl          ; starting tick
+    mov bh, 18          ; first dot after ~1 second
 
 .poll_key:
-    mov al,'.'
-    call print_char
-
     mov ah, 1
     int 0x16
     jnz .key_ready
@@ -101,7 +101,16 @@ relocated:
     xor ah, ah
     int 0x1a
 
-    sub dl, bl
+    sub dl, bl          ; DL = elapsed ticks
+
+    cmp dl, bh
+    jb .no_dot
+
+    mov al, '.'
+    call print_char
+    add bh, 18          ; next dot ~1 second later
+
+.no_dot:
     cmp dl, [menu_timeout]
     jb .poll_key
 
@@ -282,8 +291,12 @@ relocated:
     cmp word [LOAD_BASE + 510], 0xaa55
     jne invalid_pbr
 
-    mov dl, [boot_drive]
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
 
+    mov dl, [boot_drive]
     jmp 0x0000:LOAD_BASE
 
 
@@ -459,7 +472,7 @@ menu_name_4:
     times MENU_NAME_LEN-($-menu_name_4) db 0
 
 menu_timeout:
-    db 55
+    db 160
 
 ;
 ; ======================================================================
