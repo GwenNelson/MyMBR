@@ -26,10 +26,17 @@ test: test-pbrs
 
 test-pbrs: $(PBR_TESTS)
 
+
 $(PBR_TESTS): test-pbr%: test-deps test-pbr%.bin
+	@echo "=== Testing PBR $* ==="
+	./scripts/install-pbr.sh mbr-test.img $* test-pbr$*.bin
 	./scripts/activate-partition.sh mbr-test.img $*
 	./scripts/verify-active.sh mbr-test.img $*
+	./scripts/verify-img.sh mbr-test.img
 	./scripts/run-qemu-test.sh mbr-test.img $*
+	./scripts/verify-img.sh mbr-test.img
+	./scripts/verify-active.sh mbr-test.img $*
+	@echo "=== PBR $* PASSED ==="
 
 clean:
 	rm -f *.bin
