@@ -61,12 +61,73 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Choose partition
+; Display menu and choose partition
 ; ----------------------------------------------------------------------
 ;
 
+    mov si, menu_name_1
+    mov al, '1'
+    call print_menu_line
+
+    mov si, menu_name_2
+    mov al, '2'
+    call print_menu_line
+
+    mov si, menu_name_3
+    mov al, '3'
+    call print_menu_line
+
+    mov si, menu_name_4
+    mov al, '4'
+    call print_menu_line
+
 .wait_key:
+%ifdef TEST_SERIAL_INPUT
     call read_choice
+%else
+    ; Count BIOS tick changes using only the low tick byte.
+    xor ah, ah
+    int 0x1a
+    mov bl, dl
+    mov cl, [menu_timeout]
+
+.poll_key:
+    ; AH=01h tests the keyboard without consuming the character.
+    mov ah, 0x01
+    int 0x16
+    jnz .key_ready
+
+    xor ah, ah
+    int 0x1a
+    cmp dl, bl
+    je .poll_key
+
+    mov bl, dl
+    loop .poll_key
+
+    ; Timeout: use whichever partition is already marked active.
+    mov bx, PARTITION_TABLE
+    xor al, al
+    mov cx, 4
+
+.find_active:
+    cmp byte [bx], 0x80
+    je .active_found
+    add bx, 16
+    inc al
+    loop .find_active
+
+    ; No active entry: start another timeout rather than choosing one.
+    jmp .wait_key
+
+.active_found:
+    mov [selected_partition], al
+    jmp .locate_selected
+
+.key_ready:
+    xor ah, ah
+    int 0x16
+%endif
 
     cmp al, '1'
     jb .wait_key
@@ -127,6 +188,7 @@ relocated:
 ; ----------------------------------------------------------------------
 ;
 
+.locate_selected:
     mov al, [selected_partition]
     xor ah, ah
 
@@ -246,48 +308,20 @@ relocated:
 ; at the standard COM1 base address, 03F8h.
 ;
 
-read_choice:
-
 %ifdef TEST_SERIAL_INPUT
 
+read_choice:
 .wait_serial:
-    ;
-    ; COM1 Line Status Register = base + 5 = 03FDh.
-    ;
-    ; Bit 0 (Data Ready) indicates that the receive buffer contains
-    ; a character.
-    ;
-
     mov dx, 0x03fd
     in al, dx
-
     test al, 0x01
     jz .wait_serial
 
-    ;
-    ; COM1 Receive Buffer Register.
-    ;
-
     mov dx, 0x03f8
     in al, dx
-
-    ret
-
-%else
-
-    ;
-    ; Production / interactive build.
-    ;
-    ; AH=00h waits for a BIOS keyboard character.
-    ;
-
-    xor ah, ah
-    int 0x16
-
     ret
 
 %endif
-
 
 ;
 ; ======================================================================
@@ -325,6 +359,18 @@ print_string:
     ret
 
 
+; AL = menu number, DS:SI = NUL-terminated menu name
+print_menu_line:
+    call print_char
+    mov al, ' '
+    call print_char
+    call print_string
+    mov al, 13
+    call print_char
+    mov al, 10
+    jmp print_char
+
+
 ;
 ; ======================================================================
 ; Errors
@@ -339,10 +385,6 @@ invalid_pbr:
     mov al, 'P'
 
 fatal_error:
-    push al
-    mov al, '!'
-    call print_char
-    pop al
     call print_char
 
 
@@ -374,6 +416,49 @@ dap:
     dd 0
     dd 0
 
+
+;
+; ======================================================================
+; Fixed configuration area
+; ======================================================================
+;
+; These offsets are part of the on-disk configuration ABI.
+; A configuration tool may overwrite the names and timeout without
+; relocating or understanding the boot code.
+;
+; Each name occupies exactly 12 bytes including its terminating NUL,
+; so the maximum displayed name is 11 characters.
+;
+; File offsets:
+;   0180h  partition 1 name
+;   018Ch  partition 2 name
+;   0198h  partition 3 name
+;   01A4h  partition 4 name
+;   01B0h  timeout in BIOS ticks (byte; 55 ~= 3 seconds)
+;
+
+MENU_NAME_LEN equ 12
+
+times 0x181 - ($ - $$) db 0
+
+menu_name_1:
+    db "Partition 1", 0
+    times MENU_NAME_LEN-($-menu_name_1) db 0
+
+menu_name_2:
+    db "Partition 2", 0
+    times MENU_NAME_LEN-($-menu_name_2) db 0
+
+menu_name_3:
+    db "Partition 3", 0
+    times MENU_NAME_LEN-($-menu_name_3) db 0
+
+menu_name_4:
+    db "Partition 4", 0
+    times MENU_NAME_LEN-($-menu_name_4) db 0
+
+menu_timeout:
+    db 55
 
 ;
 ; ======================================================================
