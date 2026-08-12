@@ -10,7 +10,7 @@
 # BPB_BkBootSec at offset 0x32 identifies the backup boot sector.
 #
 
-pbr_install()
+pbr_install_fat()
 {
     local dev="$1"
     local pbr="$2"

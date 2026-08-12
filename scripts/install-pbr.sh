@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
@@ -67,30 +67,11 @@ DEV="${LOOP}p${PART}"
 # Identify filesystem.
 #
 
+
 TYPE=$(sudo blkid -s TYPE -o value "$DEV") ||
     fail "Could not identify filesystem on $DEV"
 
-case "$TYPE" in
-    vfat)
-        #
-        # FAT32 has BPB_FATSz16 == 0. We'll add proper FAT12/16
-        # dispatch later.
-        #
-        FATSZ16=$(sudo dd if="$DEV" bs=1 skip=$((0x16)) count=2 status=none |
-                  od -An -tu2 |
-                  tr -d ' ')
-
-        if [ "$FATSZ16" -eq 0 ]; then
-            HANDLER="$SCRIPT_DIR/pbr/fat32.sh"
-        else
-            fail "FAT12/FAT16 PBR installation is not supported yet"
-        fi
-        ;;
-
-    *)
-        HANDLER="$SCRIPT_DIR/pbr/$TYPE.sh"
-        ;;
-esac
+HANDLER="$SCRIPT_DIR/pbr/$TYPE.sh"
 
 [ -f "$HANDLER" ] ||
     fail "Unsupported filesystem type '$TYPE'"

@@ -57,3 +57,33 @@ pbr_read_le16()
     od -An -tu2 |
     tr -d ' '
 }
+
+pbr_read_u8()
+{
+    local dev="$1"
+    local offset="$2"
+
+    sudo dd \
+        if="$dev" \
+        bs=1 \
+        skip="$offset" \
+        count=1 \
+        status=none |
+    od -An -tu1 |
+    tr -d ' '
+}
+
+pbr_read_le32()
+{
+    local dev="$1"
+    local offset="$2"
+
+    sudo dd \
+        if="$dev" \
+        bs=1 \
+        skip="$offset" \
+        count=4 \
+        status=none |
+    od -An -tu4 |
+    tr -d ' '
+}
