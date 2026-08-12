@@ -31,7 +31,7 @@ hang:
 	jmp hang
 
 message:
-	db "Booted PBR",'0' + PBRID, "!", 13, 10, 0
+	db "PBR_TEST_OK:",'0' + PBRID, 13, 10, 0
 
 	times 510-($-$$) db 0
 	dw 0xAA55
