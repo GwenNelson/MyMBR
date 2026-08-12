@@ -54,13 +54,9 @@ parted -s "$IMAGE" mkpart primary fat16 193MiB 257MiB
 # Install known-good SYSLINUX reference MBR bootstrap.
 #
 
-dd \
-    if="$REFERENCE_MBR" \
-    of="$IMAGE" \
-    bs=440 \
-    count=1 \
-    conv=notrunc \
-    status=none
+"$SCRIPT_DIR/install-mbr.sh" \
+    "$IMAGE" \
+    "$PROJECT_DIR/test/syslinux-mbr.bin"
 
 echo "Installed reference SYSLINUX MBR"
 
