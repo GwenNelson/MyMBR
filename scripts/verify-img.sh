@@ -90,6 +90,7 @@ echo "=== Boot sector signatures ==="
 check_signature "${LOOP}"     # MBR itself
 check_signature "${LOOP}p1"   # FAT32
 check_signature "${LOOP}p3"   # NTFS
+check_signature "${LOOP}p4"   # FAT16
 
 echo
 echo "=== Filesystem identification ==="
@@ -97,7 +98,7 @@ echo "=== Filesystem identification ==="
 check_type "${LOOP}p1" "vfat"
 check_type "${LOOP}p2" "ext2"
 check_type "${LOOP}p3" "ntfs"
-check_type "${LOOP}p4" "ext2"
+check_type "${LOOP}p4" "vfat"
 
 #
 # Filesystem consistency
@@ -122,10 +123,10 @@ sudo ntfsfix -n "${LOOP}p3" ||
     fail "NTFS filesystem check failed on partition 3"
 
 echo
-echo "=== ext2: partition 4 ==="
+echo "=== FAT16: partition 4 ==="
 
-sudo e2fsck -fn "${LOOP}p4" ||
-    fail "ext2 filesystem check failed on partition 4"
+sudo fsck.vfat -n "${LOOP}p4" ||
+    fail "FAT16 filesystem check failed on partition 4"
 
 echo
 echo "========================================"
