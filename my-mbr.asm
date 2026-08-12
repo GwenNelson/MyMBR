@@ -440,15 +440,16 @@ dap:
 ; A configuration tool may overwrite the names and timeout without
 ; relocating or understanding the boot code.
 ;
-; Each name occupies exactly 12 bytes including its terminating NUL,
-; so the maximum displayed name is 11 characters.
+; Each name occupies exactly 8 bytes including its terminating NUL,
+; so the maximum displayed name is 7 characters.
+
 ;
 ; File offsets:
-;   0180h  partition 1 name
-;   018Ch  partition 2 name
-;   0198h  partition 3 name
-;   01A4h  partition 4 name
-;   01B0h  timeout in BIOS ticks (byte; 55 ~= 3 seconds)
+;   0197h  partition 1 name
+;   019Fh  partition 2 name
+;   01A7h  partition 3 name
+;   01AFh  partition 4 name
+;   01B7h  timeout in BIOS ticks (byte; 160 ~= 8.8 seconds)
 ;
 
 MENU_NAME_LEN equ 8
