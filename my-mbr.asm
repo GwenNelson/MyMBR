@@ -137,12 +137,59 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Load PBR using legacy CHS, with EDD/LBA fallback
+; Load PBR using EDD/LBA when available, with legacy CHS fallback
 ; ----------------------------------------------------------------------
 ;
 
+    ;
+    ; Prefer INT 13h extensions.  The partition table's LBA start field
+    ; is authoritative on modern partition tables; CHS is only fallback.
+    ; Preserve BX because AH=41h requires BX=55AAh.
+    ;
+
     push bx
 
+    mov ah, 0x41
+    mov bx, 0x55aa
+    mov dl, [boot_drive]
+    int 0x13
+    jc .no_edd
+
+    cmp bx, 0xaa55
+    jne .no_edd
+
+    test cx, 1
+    jz .no_edd
+
+    ;
+    ; EDD is available. Restore the partition pointer and read its
+    ; authoritative starting LBA.
+    ;
+
+    pop bx
+
+    mov eax, [bx + 8]
+    mov [dap + 8], eax
+
+    push bx
+    mov si, dap
+    mov ah, 0x42
+    mov dl, [boot_drive]
+    int 0x13
+    pop bx
+    jnc .pbr_loaded
+
+    ;
+    ; Extended read failed. BX still points at the selected partition,
+    ; so fall back to its legacy CHS fields.
+    ;
+
+    jmp .try_chs
+
+.no_edd:
+    pop bx
+
+.try_chs:
     mov dh, [bx + 1]
     mov cl, [bx + 2]
     mov ch, [bx + 3]
@@ -157,43 +204,6 @@ relocated:
 
     mov dl, [boot_drive]
 
-    int 0x13
-
-    pop bx
-    jnc .pbr_loaded
-
-    ;
-    ; Legacy CHS failed. Check for INT 13h extensions.
-    ;
-
-    mov ah, 0x41
-    mov bx, 0x55aa
-    mov dl, [boot_drive]
-    int 0x13
-    jc disk_error
-
-    cmp bx, 0xaa55
-    jne disk_error
-
-    test cx, 1
-    jz disk_error
-
-    ;
-    ; Read the selected partition's first sector by LBA.
-    ;
-
-    mov al, [selected_partition]
-    xor ah, ah
-    mov bx, ax
-    shl bx, 4
-    add bx, PARTITION_TABLE
-
-    mov eax, [bx + 8]
-    mov [dap + 8], eax
-
-    mov si, dap
-    mov ah, 0x42
-    mov dl, [boot_drive]
     int 0x13
     jc disk_error
 
@@ -329,6 +339,10 @@ invalid_pbr:
     mov al, 'P'
 
 fatal_error:
+    push al
+    mov al, '!'
+    call print_char
+    pop al
     call print_char
 
 
