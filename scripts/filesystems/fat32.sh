@@ -20,7 +20,7 @@ pbr_install_fat()
     # Replace JMP + NOP.
     #
 
-    pbr_write_range \
+    dev_write_range \
         "$dev" "$pbr" \
         0 0 3 ||
         return 1
@@ -30,7 +30,7 @@ pbr_install_fat()
     # from 0x05A through the end of the boot sector.
     #
 
-    pbr_write_range \
+    dev_write_range \
         "$dev" "$pbr" \
         $((0x5A)) $((0x5A)) $((512 - 0x5A)) ||
         return 1
@@ -39,7 +39,7 @@ pbr_install_fat()
     # Read BPB_BkBootSec from the now-preserved FAT32 BPB.
     #
 
-    backup_sector=$(pbr_read_le16 "$dev" $((0x32))) ||
+    backup_sector=$(dev_read_le16 "$dev" $((0x32))) ||
         return 1
 
     if [ -z "$backup_sector" ] || [ "$backup_sector" -eq 0 ]; then
@@ -54,7 +54,7 @@ pbr_install_fat()
     # complete. Copy it to FAT32's backup boot sector.
     #
 
-    pbr_copy_sector "$dev" 0 "$backup_sector" ||
+    dev_copy_sector "$dev" 0 "$backup_sector" ||
         return 1
 
     echo "FAT32 primary and backup boot sectors updated"

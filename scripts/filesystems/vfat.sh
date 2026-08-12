@@ -28,31 +28,31 @@ pbr_install()
     local fat_type
     local handler
 
-    bytes_per_sector=$(pbr_read_le16 "$dev" $((0x0B))) ||
+    bytes_per_sector=$(dev_read_le16 "$dev" $((0x0B))) ||
         return 1
 
-    sectors_per_cluster=$(pbr_read_u8 "$dev" $((0x0D))) ||
+    sectors_per_cluster=$(dev_read_u8 "$dev" $((0x0D))) ||
         return 1
 
-    reserved_sectors=$(pbr_read_le16 "$dev" $((0x0E))) ||
+    reserved_sectors=$(dev_read_le16 "$dev" $((0x0E))) ||
         return 1
 
-    number_of_fats=$(pbr_read_u8 "$dev" $((0x10))) ||
+    number_of_fats=$(dev_read_u8 "$dev" $((0x10))) ||
         return 1
 
-    root_entries=$(pbr_read_le16 "$dev" $((0x11))) ||
+    root_entries=$(dev_read_le16 "$dev" $((0x11))) ||
         return 1
 
-    total_sectors_16=$(pbr_read_le16 "$dev" $((0x13))) ||
+    total_sectors_16=$(dev_read_le16 "$dev" $((0x13))) ||
         return 1
 
-    fat_size_16=$(pbr_read_le16 "$dev" $((0x16))) ||
+    fat_size_16=$(dev_read_le16 "$dev" $((0x16))) ||
         return 1
 
-    total_sectors_32=$(pbr_read_le32 "$dev" $((0x20))) ||
+    total_sectors_32=$(dev_read_le32 "$dev" $((0x20))) ||
         return 1
 
-    fat_size_32=$(pbr_read_le32 "$dev" $((0x24))) ||
+    fat_size_32=$(dev_read_le32 "$dev" $((0x24))) ||
         return 1
 
     if [ "$total_sectors_16" -ne 0 ]; then
@@ -88,7 +88,7 @@ pbr_install()
 
     echo "VFAT volume identified as ${fat_type^^} ($cluster_count clusters)"
 
-    handler="$SCRIPT_DIR/pbr/$fat_type.sh"
+    handler="$SCRIPT_DIR/filesystems/$fat_type.sh"
 
     [ -f "$handler" ] || {
         echo "FAILED: ${fat_type^^} PBR installation is not supported yet" >&2

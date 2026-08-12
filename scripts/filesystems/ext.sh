@@ -13,7 +13,7 @@ pbr_install()
     local dev="$1"
     local pbr="$2"
 
-    pbr_write_range \
+    dev_write_range \
         "$dev" "$pbr" \
         0 0 512 ||
         return 1

@@ -23,7 +23,7 @@ pbr_install_fat()
     # Replace JMP + NOP.
     #
 
-    pbr_write_range \
+    dev_write_range \
         "$dev" "$pbr" \
         0 0 3 ||
         return 1
@@ -33,7 +33,7 @@ pbr_install_fat()
     # boot code from 0x5A through the end of the sector.
     #
 
-    pbr_write_range \
+    dev_write_range \
         "$dev" "$pbr" \
         $((0x5A)) $((0x5A)) $((512 - 0x5A)) ||
         return 1

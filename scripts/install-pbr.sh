@@ -5,6 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$SCRIPT_DIR/.."
 
 source "$SCRIPT_DIR/loop-funcs.sh"
+source "$SCRIPT_DIR/filesystems/common.sh"
 
 IMAGE="${1:-}"
 PART="${2:-}"
@@ -67,17 +68,18 @@ DEV="${LOOP}p${PART}"
 # Identify filesystem.
 #
 
-
 TYPE=$(sudo blkid -s TYPE -o value "$DEV") ||
     fail "Could not identify filesystem on $DEV"
 
-HANDLER="$SCRIPT_DIR/pbr/$TYPE.sh"
+#
+# Load filesystem-specific handler.
+#
 
-[ -f "$HANDLER" ] ||
-    fail "Unsupported filesystem type '$TYPE'"
+filesystem_load "$TYPE" ||
+    fail "No filesystem handler available for '$TYPE'"
 
-source "$SCRIPT_DIR/pbr/common.sh"
-source "$HANDLER"
+declare -F pbr_install >/dev/null ||
+    fail "Filesystem '$TYPE' does not support PBR installation"
 
 echo "Installing $PBR into partition $PART ($TYPE)"
 
