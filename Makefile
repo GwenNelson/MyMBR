@@ -50,7 +50,7 @@ mbr: $(MBR_BIN)
 # PBR installs
 #
 
-install-test-pbr%: test-deps $(BIN_DIR)/test-pbr%.bin
+install-test-pbr%: $(IMAGE) $(BIN_DIR)/test-pbr%.bin
 	./scripts/install-pbr.sh "$(IMAGE)" "$*" "$(BIN_DIR)/test-pbr$*.bin"
 
 install-test-pbrs: $(PBR_INSTALLS)
