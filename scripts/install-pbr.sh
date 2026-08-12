@@ -1,10 +1,14 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+
+source "$SCRIPT_DIR/loop-funcs.sh"
+
 IMAGE="${1:-}"
 PART="${2:-}"
 PBR="${3:-}"
-LOOP=""
 
 fail()
 {
@@ -14,9 +18,7 @@ fail()
 
 cleanup()
 {
-    if [ -n "$LOOP" ]; then
-        sudo losetup -d "$LOOP"
-    fi
+    loop_cleanup
 }
 
 trap cleanup EXIT
@@ -52,11 +54,11 @@ SIG=$(dd if="$PBR" bs=1 skip=510 count=2 status=none |
     fail "PBR does not have a 55 AA signature"
 
 #
-# Attach image.
+# Acquire image loop device.
 #
 
-LOOP=$(sudo losetup --find --show --partscan "$IMAGE") ||
-    fail "Could not attach image"
+loop_acquire "$IMAGE" ||
+    fail "Could not acquire loop device"
 
 DEV="${LOOP}p${PART}"
 
@@ -67,7 +69,6 @@ echo "Installing $PBR into partition $PART"
 
 #
 # Install JMP + NOP.
-#
 # 000-002: ours
 #
 
@@ -81,7 +82,6 @@ sudo dd \
 
 #
 # 003-059: filesystem-owned, preserve.
-#
 # 05A-1FF: ours
 #
 

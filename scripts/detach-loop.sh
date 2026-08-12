@@ -1,7 +1,9 @@
 #!/bin/bash
 set -e
 
-STATE=".loop-device"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+STATE="$PROJECT_DIR/.loop-device"
 
 fail()
 {
@@ -9,18 +11,16 @@ fail()
     exit 1
 }
 
-[ -e "$STATE" ] ||
-    fail "No loop device is currently recorded"
+[ -f "$STATE" ] ||
+    fail "No loop device recorded"
 
 LOOP=$(cat "$STATE")
 
-if [ -b "$LOOP" ]; then
-    sudo losetup -d "$LOOP" ||
-        fail "Could not detach $LOOP"
-else
-    echo "Warning: $LOOP no longer exists"
-fi
+echo "Detaching $LOOP..." >&2
+
+sudo losetup -d "$LOOP" ||
+    fail "Could not detach $LOOP"
 
 rm -f "$STATE"
 
-echo "$LOOP detached"
+echo "$LOOP detached" >&2

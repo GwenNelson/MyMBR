@@ -1,14 +1,16 @@
 #!/bin/bash
 set -e
 
-IMAGE=mbr-test.img
-LOOP=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+
+source "$SCRIPT_DIR/loop-funcs.sh"
+
+IMAGE="$PROJECT_DIR/mbr-test.img"
 
 cleanup()
 {
-    if [ -n "$LOOP" ]; then
-        sudo losetup -d "$LOOP"
-    fi
+    loop_cleanup
 }
 
 trap cleanup EXIT
@@ -26,7 +28,7 @@ parted -s "$IMAGE" mkpart primary ntfs 17MiB 25MiB
 parted -s "$IMAGE" mkpart primary ext2 25MiB 33MiB
 
 # Attach image and have the kernel expose its partitions
-LOOP=$(sudo losetup --find --show --partscan "$IMAGE")
+loop_acquire "$IMAGE"
 
 echo "Image attached as $LOOP"
 
@@ -39,14 +41,3 @@ sudo mkfs.ext2 -F "${LOOP}p4"
 # Show what we've made
 sudo fdisk -l "$LOOP"
 sudo blkid "${LOOP}p1" "${LOOP}p2" "${LOOP}p3" "${LOOP}p4"
-
-# cleanup trap detaches LOOP
-sudo mkfs.ext2 -F "${LOOP}p2"
-sudo mkfs.ntfs -F "${LOOP}p3"
-sudo mkfs.ext2 -F "${LOOP}p4"
-
-# Show what we've made
-sudo fdisk -l "$LOOP"
-sudo blkid "${LOOP}p1" "${LOOP}p2" "${LOOP}p3" "${LOOP}p4"
-
-# cleanup trap detaches LOOP

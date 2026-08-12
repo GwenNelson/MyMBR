@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-IMAGE="${1:-mbr-test.img}"
-STATE=".loop-device"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+STATE="$PROJECT_DIR/.loop-device"
+
+IMAGE="${1:-$PROJECT_DIR/mbr-test.img}"
 
 fail()
 {
@@ -13,21 +16,25 @@ fail()
 [ -f "$IMAGE" ] ||
     fail "Image '$IMAGE' does not exist"
 
-if [ -e "$STATE" ]; then
-    LOOP=$(cat "$STATE")
+[ ! -e "$STATE" ] ||
+    fail "$STATE already exists; detach the existing loop device first"
 
-    if [ -b "$LOOP" ] && sudo losetup "$LOOP" >/dev/null 2>&1; then
-        echo "$IMAGE already attached as $LOOP"
-        exit 0
-    fi
+if [ -t 0 ] && [ -t 1 ]; then
+    printf "Attach a new loop device for '%s'? [y/N] " "$IMAGE"
+    read -r REPLY
 
-    echo "Removing stale loop-device state"
-    rm -f "$STATE"
+    case "$REPLY" in
+        y|Y|yes|YES) ;;
+        *) exit 1 ;;
+    esac
 fi
+
+echo "Attaching new loop device for $IMAGE..." >&2
 
 LOOP=$(sudo losetup --find --show --partscan "$IMAGE") ||
     fail "Could not attach '$IMAGE'"
 
 echo "$LOOP" > "$STATE"
 
-echo "$IMAGE attached as $LOOP"
+echo "New loop device: $LOOP" >&2
+echo "$LOOP"

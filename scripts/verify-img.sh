@@ -1,13 +1,15 @@
 #!/bin/bash
 
-IMAGE="${1:-mbr-test.img}"
-LOOP=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/.."
+
+source "$SCRIPT_DIR/loop-funcs.sh"
+
+IMAGE="${1:-$PROJECT_DIR/mbr-test.img}"
 
 cleanup()
 {
-    if [ -n "$LOOP" ]; then
-        sudo losetup -d "$LOOP"
-    fi
+    loop_cleanup
 }
 
 fail()
@@ -26,11 +28,10 @@ fi
 echo "Verifying $IMAGE"
 echo
 
-# Attach image and ask the kernel to scan its partition table
-LOOP=$(sudo losetup --find --show --partscan "$IMAGE") ||
-    fail "Could not attach image"
+loop_acquire "$IMAGE" ||
+    fail "Could not acquire loop device"
 
-echo "Attached as $LOOP"
+echo "Using $LOOP"
 echo
 
 #
