@@ -19,6 +19,7 @@ PBR_TESTS := test-pbr1 test-pbr2 test-pbr3 test-pbr4
 	all clean \
 	mbr pbr-tests \
 	test-deps test test-pbrs \
+	check-scripts \
 	$(PBR_TESTS)
 
 
@@ -83,6 +84,9 @@ $(PBR_TESTS): test-pbr%: test-deps $(BIN_DIR)/test-pbr%.bin
 	./scripts/verify-img.sh "$(IMAGE)"
 	./scripts/verify-active.sh "$(IMAGE)" $*
 	@echo "=== PBR $* PASSED ==="
+
+check-scripts:
+	bash -n scripts/*.sh scripts/filesystems/*.sh
 
 
 #
