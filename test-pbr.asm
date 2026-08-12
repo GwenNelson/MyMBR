@@ -1,6 +1,15 @@
 BITS 16
 ORG 0x7C00
 
+%ifndef PBRID
+    %error "PBRID must be defined"
+%endif
+
+%if PBRID < 1 || PBRID > 4
+    %error "PBRID must be between 1 and 4"
+%endif
+
+
 ; Standard PBR entry point.
 ; Bytes 0x03-0x59 are reserved for filesystem metadata/BPB and
 ; will be preserved by the installer.
