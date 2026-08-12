@@ -453,7 +453,11 @@ dap:
 
 MENU_NAME_LEN equ 8
 
-;times 0x184 - ($ - $$) db 0
+%if ($-$$) > 0x195
+    %error "Code overlaps config area"
+%endif
+
+times 0x195 - ($ - $$) db 0
 
 menu_name_1:
     db "Part1", 0
