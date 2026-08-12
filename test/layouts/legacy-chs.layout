@@ -1,0 +1,10 @@
+# test/layouts/legacy-chs.layout
+
+IMAGE_SIZE=60M
+
+PARTITIONS=(
+    "fat16 1MiB  16MiB"
+    "ext2  16MiB 31MiB"
+    "ntfs  31MiB 46MiB"
+    "fat16 46MiB 59MiB"
+)

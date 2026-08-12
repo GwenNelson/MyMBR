@@ -11,13 +11,9 @@ PARTITION_TABLE equ RELOC_BASE + 446
 ; Initial entry
 ; ======================================================================
 ;
-; BIOS has loaded the complete MBR sector at 0000:7C00 and entered
-; us there.
-;
-; This file is assembled with ORG 0600h, because that is where we
-; actually want to execute. Therefore this initial stub must not use
-; ordinary labels for data or control transfers until relocation is
-; complete.
+; BIOS actually enters this code at 0000:7C00.
+; We assemble for 0000:0600 because that's where we relocate ourselves
+; before doing any real work.
 ;
 
 start:
@@ -32,10 +28,7 @@ start:
     cld
 
     ;
-    ; Copy the complete 512-byte MBR from 0000:7C00 to 0000:0600.
-    ;
-    ; This includes the six bytes following our installed boot code,
-    ; the partition table, and the 55 AA signature.
+    ; Copy the complete 512-byte MBR to 0000:0600.
     ;
 
     mov si, LOAD_BASE
@@ -44,13 +37,7 @@ start:
     rep movsw
 
     ;
-    ; Far jump into the relocated copy.
-    ;
-    ; We cannot simply say "jmp relocated" here because the instruction
-    ; itself is currently executing at 7Cxx while NASM has assembled
-    ; that relative jump assuming 06xx.
-    ;
-    ; The far jump contains an absolute offset, so this is safe.
+    ; Absolute far jump into relocated copy.
     ;
 
     jmp 0x0000:relocated
@@ -61,20 +48,132 @@ start:
 ; Relocated execution
 ; ======================================================================
 ;
-; From here onwards we're really executing at the addresses NASM used,
-; so ordinary labels work normally.
-;
 
 relocated:
     sti
 
     ;
-    ; BIOS supplied the boot drive in DL.
-    ;
-    ; REP MOVSW did not alter it, so save it now.
+    ; DL still contains the BIOS boot drive.
     ;
 
     mov [boot_drive], dl
+
+
+;
+; ----------------------------------------------------------------------
+; Display BIOS disk geometry
+; ----------------------------------------------------------------------
+;
+; INT 13h AH=08h returns:
+;
+;   CH       cylinder bits 0..7
+;   CL 6..7  cylinder bits 8..9
+;   CL 0..5  sectors per track
+;   DH       maximum head number
+;
+; CH/DH are maximum values, so cylinder/head counts are +1.
+;
+
+    mov ah, 0x08
+    mov dl, [boot_drive]
+    int 0x13
+    jc geometry_error
+
+    ;
+    ; Save the returned values before using BIOS video services.
+    ;
+
+    mov [geometry_ch], ch
+    mov [geometry_cl], cl
+    mov [geometry_dh], dh
+
+    ;
+    ; "C="
+    ;
+
+    mov al, 'C'
+    call print_char
+
+    mov al, '='
+    call print_char
+
+    ;
+    ; Decode cylinder:
+    ;
+    ; cylinder =
+    ;   CH | ((CL & 0xC0) << 2)
+    ;
+    ; AX = cylinder count.
+    ;
+
+    xor ax, ax
+    mov al, [geometry_cl]
+    and ax, 0x00c0
+    shl ax, 1
+    shl ax, 1
+
+    xor bx, bx
+    mov bl, [geometry_ch]
+    or ax, bx
+
+    inc ax
+    call print_uint
+
+
+    ;
+    ; " H="
+    ;
+
+    mov al, ' '
+    call print_char
+
+    mov al, 'H'
+    call print_char
+
+    mov al, '='
+    call print_char
+
+    ;
+    ; Heads = maximum head + 1.
+    ;
+
+    xor ax, ax
+    mov al, [geometry_dh]
+    inc ax
+    call print_uint
+
+
+    ;
+    ; " S="
+    ;
+
+    mov al, ' '
+    call print_char
+
+    mov al, 'S'
+    call print_char
+
+    mov al, '='
+    call print_char
+
+    ;
+    ; Sectors per track = CL bits 0..5.
+    ;
+
+    xor ax, ax
+    mov al, [geometry_cl]
+    and ax, 0x003f
+    call print_uint
+
+    ;
+    ; Newline.
+    ;
+
+    mov al, 13
+    call print_char
+
+    mov al, 10
+    call print_char
 
 
 ;
@@ -84,14 +183,6 @@ relocated:
 ;
 
 .wait_key:
-    ;
-    ; INT 16h AH=00h:
-    ;
-    ;   waits for key
-    ;   AL = ASCII character
-    ;   AH = scan code
-    ;
-
     xor ah, ah
     int 0x16
 
@@ -101,7 +192,7 @@ relocated:
     cmp al, '4'
     ja .wait_key
 
-    sub al, '1'                   ; convert ASCII '1'..'4' to 0..3
+    sub al, '1'
     mov [selected_partition], al
 
 
@@ -111,27 +202,15 @@ relocated:
 ; ----------------------------------------------------------------------
 ;
 
-    ;
-    ; Clear all four active flags.
-    ;
-
     mov byte [PARTITION_TABLE + 0*16], 0
     mov byte [PARTITION_TABLE + 1*16], 0
     mov byte [PARTITION_TABLE + 2*16], 0
     mov byte [PARTITION_TABLE + 3*16], 0
 
-    ;
-    ; BX = selected partition entry.
-    ;
-
     xor ah, ah
     mov bx, ax
-    shl bx, 4                     ; index * 16
+    shl bx, 4
     add bx, PARTITION_TABLE
-
-    ;
-    ; Mark it active.
-    ;
 
     mov byte [bx], 0x80
 
@@ -141,23 +220,18 @@ relocated:
 ; Write modified MBR back to disk
 ; ----------------------------------------------------------------------
 ;
-; Write the complete relocated sector at 0000:0600 back to CHS 0/0/1.
-;
-; This preserves everything except the active flags we deliberately
-; changed.
-;
 
     xor ax, ax
     mov es, ax
 
     mov bx, RELOC_BASE
 
-    mov ah, 0x03                  ; BIOS write sectors
-    mov al, 1                     ; one sector
+    mov ah, 0x03
+    mov al, 1
 
-    xor ch, ch                    ; cylinder 0
-    mov cl, 1                     ; sector 1
-    xor dh, dh                    ; head 0
+    xor ch, ch
+    mov cl, 1
+    xor dh, dh
 
     mov dl, [boot_drive]
 
@@ -167,10 +241,8 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Locate selected partition again
+; Locate selected partition
 ; ----------------------------------------------------------------------
-;
-; Do not assume BIOS preserved BX or any other useful register.
 ;
 
     mov al, [selected_partition]
@@ -183,33 +255,20 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Load PBR
+; Load PBR using legacy CHS
 ; ----------------------------------------------------------------------
-;
-; An MBR partition entry stores its starting CHS as:
-;
-;   +1  head
-;   +2  sector in bits 0..5, cylinder bits 8..9 in bits 6..7
-;   +3  cylinder bits 0..7
-;
-; This is already exactly the CH/CL/DH representation expected by
-; INT 13h AH=02h, so no conversion is necessary.
 ;
 
     mov dh, [bx + 1]
     mov cl, [bx + 2]
     mov ch, [bx + 3]
 
-    ;
-    ; Read one sector to 0000:7C00.
-    ;
-
     xor ax, ax
     mov es, ax
 
     mov bx, LOAD_BASE
 
-    mov ah, 0x02                  ; BIOS read sectors
+    mov ah, 0x02
     mov al, 1
 
     mov dl, [boot_drive]
@@ -220,22 +279,12 @@ relocated:
 
 ;
 ; ----------------------------------------------------------------------
-; Validate PBR
+; Validate and boot PBR
 ; ----------------------------------------------------------------------
 ;
 
     cmp word [LOAD_BASE + 510], 0xaa55
     jne invalid_pbr
-
-
-;
-; ----------------------------------------------------------------------
-; Boot it
-; ----------------------------------------------------------------------
-;
-; Restore DL because the PBR conventionally expects the BIOS boot
-; drive there.
-;
 
     mov dl, [boot_drive]
 
@@ -244,14 +293,74 @@ relocated:
 
 ;
 ; ======================================================================
-; Error handling
+; Output
 ; ======================================================================
 ;
+
+;
+; print_char
+;
+; AL = character
+;
+
+print_char:
+    push ax
+    push bx
+
+    mov ah, 0x0e
+    mov bx, 0x0007
+    int 0x10
+
+    pop bx
+    pop ax
+    ret
+
+
+;
+; print_uint
+;
+; Print unsigned 16-bit AX in decimal.
+;
+; Destroys AX, BX, CX, DX.
+;
+
+print_uint:
+    xor cx, cx
+    mov bx, 10
+
+.convert:
+    xor dx, dx
+    div bx
+
+    push dx
+    inc cx
+
+    test ax, ax
+    jnz .convert
+
+.print:
+    pop ax
+    add al, '0'
+    call print_char
+
+    loop .print
+
+    ret
+
+
+;
+; ======================================================================
+; Errors
+; ======================================================================
+;
+
+geometry_error:
+    mov si, geometry_error_message
+    jmp print_error
 
 disk_error:
     mov si, disk_error_message
     jmp print_error
-
 
 invalid_pbr:
     mov si, invalid_pbr_message
@@ -263,10 +372,7 @@ print_error:
     test al, al
     jz hang
 
-    mov ah, 0x0e                  ; BIOS teletype output
-    mov bx, 0x0007
-    int 0x10
-
+    call print_char
     jmp print_error
 
 
@@ -278,7 +384,7 @@ hang:
 
 ;
 ; ======================================================================
-; State / strings
+; State
 ; ======================================================================
 ;
 
@@ -287,6 +393,19 @@ boot_drive:
 
 selected_partition:
     db 0
+
+geometry_ch:
+    db 0
+
+geometry_cl:
+    db 0
+
+geometry_dh:
+    db 0
+
+
+geometry_error_message:
+    db "Geometry error", 13, 10, 0
 
 disk_error_message:
     db "Disk error", 13, 10, 0
@@ -300,22 +419,9 @@ invalid_pbr_message:
 ; Installed MBR boot-code region
 ; ======================================================================
 ;
-; The assembled file contains exactly bytes 0..439 of the MBR.
-;
-; install-mbr.sh preserves:
-;
-;   440..443   disk signature
-;   444..445   reserved
-;   446..509   partition table
-;   510..511   55 AA signature
-;
-; At boot time BIOS loads all 512 bytes at 0000:7C00, and the relocation
-; above copies all 512 bytes to 0000:0600.
-;
 
 %if ($-$$) > 440
     %error "MBR boot code exceeds 440 bytes"
 %endif
 
 times 440-($-$$) db 0
-
