@@ -12,6 +12,31 @@
 # sector of the volume.
 #
 
+PARTED_TYPE="ntfs"
+
+filesystem_create()
+{
+    local dev="$1"
+
+    echo "Creating NTFS filesystem on $dev"
+
+    sudo mkfs.ntfs -F "$dev"
+}
+
+filesystem_verify()
+{
+    local dev="$1"
+
+    echo "Checking boot signature on $dev"
+    filesystem_check_signature "$dev"
+
+    echo "Checking NTFS filesystem on $dev"
+
+    sudo ntfsfix -n "$dev"
+}
+
+
+
 pbr_install()
 {
     local dev="$1"

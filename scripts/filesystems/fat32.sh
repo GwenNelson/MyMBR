@@ -10,6 +10,32 @@
 # BPB_BkBootSec at offset 0x32 identifies the backup boot sector.
 #
 
+PARTED_TYPE="fat32"
+
+filesystem_create()
+{
+    local dev="$1"
+    local type="$2"
+
+    echo "Creating FAT32 filesystem on $dev"
+
+    sudo mkfs.vfat -F 32 "$dev"
+}
+
+filesystem_verify_fat()
+{
+    local dev="$1"
+
+    echo "Checking boot sector signature on $dev"
+    filesystem_check_signature "$dev"
+
+
+    echo "Checking FAT32 filesystem on $dev"
+
+    sudo fsck.fat -n "$dev"
+}
+
+
 pbr_install_fat()
 {
     local dev="$1"

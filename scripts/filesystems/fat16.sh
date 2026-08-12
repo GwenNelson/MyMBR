@@ -14,6 +14,32 @@
 # Unlike FAT32, FAT16 has no BPB-defined backup boot sector.
 #
 
+PARTED_TYPE="fat16"
+
+filesystem_create()
+{
+    local dev="$1"
+    local type="$2"
+
+    echo "Creating FAT16 filesystem on $dev"
+
+    sudo mkfs.vfat -F 16 "$dev"
+}
+
+filesystem_verify_fat()
+{
+    local dev="$1"
+
+    echo "Checking boot sector signature on $dev"
+    filesystem_check_signature "$dev"
+
+    echo "Checking FAT16 filesystem on $dev"
+
+    sudo fsck.fat -n "$dev"
+}
+
+
+
 pbr_install_fat()
 {
     local dev="$1"

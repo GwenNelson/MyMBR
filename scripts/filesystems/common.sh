@@ -71,13 +71,32 @@ filesystem_load()
 
     filesystem_unload
 
+    FILESYSTEM_TYPE="$type"
+
     source "$handler" || {
         echo "FAILED: could not load filesystem handler '$handler'" >&2
+        filesystem_unload
         return 1
     }
 }
 
 
+
+filesystem_check_signature()
+{
+    DEV="$1"
+
+    SIG=$(sudo dd if="$DEV" bs=1 skip=510 count=2 status=none |
+          od -An -tx1 |
+          tr -d ' \n')
+
+    [ "$SIG" = "55aa" ] || {
+        echo "$DEV: invalid boot-sector signature ($SIG)"
+        return 1
+    }
+
+    echo "$DEV: boot signature 55 AA [OK]"
+}
 
 #
 # Write a range from an image to a filesystem device.
