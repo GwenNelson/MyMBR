@@ -1,9 +1,0 @@
-Consider making some sane system for not constantly attaching and detaching the loop dev?
-
-scripts/
-    activate-partition.sh *
-    verify-active.sh      *
-    run-qemu-test.sh      * - not fully tested yet
-    install-pbr.sh        *
-    install-mbr.sh
-    verify-img.sh         *
